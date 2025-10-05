@@ -1,6 +1,6 @@
 import { Server } from '@hapi/hapi';
 import * as shiftController from './shiftController';
-import { createShiftDto, filterSchema, idDto, updateShiftDto } from '../../../shared/dtos';
+import { createShiftDto, idDto, listShiftQueryDto, updateShiftDto } from '../../../shared/dtos';
 
 export default function (server: Server, basePath: string) {
   server.route({
@@ -10,7 +10,10 @@ export default function (server: Server, basePath: string) {
     options: {
       description: 'Get shifts with filter',
       notes: 'Get all shifts if filter is not specified.',
-      tags: ['api', 'shift']
+      tags: ['api', 'shift'],
+      validate: {
+        query: listShiftQueryDto,
+      },
     }
   });
   

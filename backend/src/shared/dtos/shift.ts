@@ -6,12 +6,18 @@ export const createShiftDto = Joi.object({
   name: Joi.string().required(),
   date: Joi.date().required(),
   startTime: Joi.string().regex(timeRegex).required(),
-  endTime:Joi.string().regex(timeRegex).required()
+  endTime: Joi.string().regex(timeRegex).required(),
+  ignoreClash: Joi.boolean(),
 });
 
 export const updateShiftDto = Joi.object({
   name: Joi.string(),
   date: Joi.date(),
   startTime: Joi.string().regex(timeRegex),
-  endTime:Joi.string().regex(timeRegex),
+  endTime: Joi.string().regex(timeRegex),
+  ignoreClash: Joi.boolean(),
+});
+
+export const listShiftQueryDto = Joi.object({
+  weekStartDate: Joi.date(),
 });

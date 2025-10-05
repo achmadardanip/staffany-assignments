@@ -13,8 +13,10 @@ const logger = moduleLogger("shiftController");
 export const find = async (req: Request, h: ResponseToolkit) => {
   logger.info("Find shifts");
   try {
-    const filter = req.query;
-    const data = await shiftUsecase.find(filter);
+    const { weekStartDate } = req.query as {
+      weekStartDate?: string;
+    };
+    const data = await shiftUsecase.find({ weekStartDate });
     const res: ISuccessResponse = {
       statusCode: 200,
       message: "Get shift successful",

@@ -1,201 +1,412 @@
-import React, { FunctionComponent, useEffect, useState } from "react";
-import Grid from "@mui/material/Grid";
-import Card from "@mui/material/Card";
-import CardContent from "@mui/material/CardContent";
-import { useTheme } from "@mui/material/styles";
-import { getErrorMessage } from "../helper/error/index";
-import { deleteShiftById, getShifts } from "../helper/api/shift";
-import DataTable from "react-data-table-component";
-import IconButton from "@mui/material/IconButton";
-import DeleteIcon from "@mui/icons-material/Delete";
+import React, {
+  FunctionComponent,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import {
+  Alert,
+  Box,
+  Button,
+  Card,
+  CardContent,
+  CircularProgress,
+  Grid,
+  IconButton,
+  LinearProgress,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableRow,
+  Typography,
+} from "@mui/material";
+import ChevronLeftIcon from "@mui/icons-material/ChevronLeft";
+import ChevronRightIcon from "@mui/icons-material/ChevronRight";
 import EditIcon from "@mui/icons-material/Edit";
-import Fab from "@mui/material/Fab";
-import AddIcon from "@mui/icons-material/Add";
-import { useHistory } from "react-router-dom";
+import DeleteIcon from "@mui/icons-material/Delete";
+import CalendarMonthIcon from "@mui/icons-material/CalendarMonth";
+import { useHistory, useLocation } from "react-router-dom";
+import { format, parseISO, addWeeks, startOfWeek } from "date-fns";
+import { useTheme } from "@mui/material/styles";
 import ConfirmDialog from "../components/ConfirmDialog";
-import Alert from "@mui/material/Alert";
-import { Link as RouterLink } from "react-router-dom";
-
-interface ActionButtonProps {
-  id: string;
-  onDelete: () => void;
-}
-
-interface ShiftData {
-  id: string;
-  name: string;
-  date: string;
-  startTime: string;
-  endTime: string;
-}
-
-const ActionButton: FunctionComponent<ActionButtonProps> = ({
-  id,
-  onDelete,
-}) => {
-  return (
-    <div>
-      <IconButton
-        size="small"
-        aria-label="edit"
-        component={RouterLink}
-        to={`/shift/${id}/edit`}
-      >
-        <EditIcon fontSize="small" />
-      </IconButton>
-      <IconButton size="small" aria-label="delete" onClick={() => onDelete()}>
-        <DeleteIcon fontSize="small" />
-      </IconButton>
-    </div>
-  );
-};
+import { getErrorMessage } from "../helper/error";
+import {
+  deleteShiftById,
+  getShifts,
+  getWeekByStart,
+  publishWeek as publishWeekRequest,
+} from "../helper/api/shift";
+import { useAppDispatch, useAppSelector } from "../store/hooks";
+import {
+  removeShift,
+  setError,
+  setLoading,
+  setSelectedWeek,
+  setShifts,
+  setWeekInfo,
+  setPublishing,
+} from "../store/slices/scheduleSlice";
+import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
+import { DatePicker } from "@mui/x-date-pickers/DatePicker";
+import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
 
 const Shift: FunctionComponent = () => {
   const theme = useTheme();
+  const dispatch = useAppDispatch();
   const history = useHistory();
+  const location = useLocation();
 
-  const [rows, setRows] = useState<ShiftData[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [errMsg, setErrMsg] = useState("");
+  const {
+    selectedWeekStart,
+    selectedWeekEnd,
+    shifts,
+    weekInfo,
+    loading,
+    publishing,
+    error,
+  } = useAppSelector((state) => state.schedule);
 
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState<boolean>(false);
-  const [deleteLoading, setDeleteLoading] = useState<boolean>(false);
-
-  const onDeleteClick = (id: string) => {
-    setSelectedId(id);
-    setShowDeleteConfirm(true);
-  };
-
-  const onCloseDeleteDialog = () => {
-    setSelectedId(null);
-    setShowDeleteConfirm(false);
-  };
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [publishDialogOpen, setPublishDialogOpen] = useState(false);
+  const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
+  const [datePickerValue, setDatePickerValue] = useState<Date | null>(null);
+  const initialWeekRef = useRef(selectedWeekStart);
 
   useEffect(() => {
-    const getData = async () => {
+    const params = new URLSearchParams(location.search);
+    const weekParam = params.get("week");
+
+    if (weekParam) {
+      dispatch(setSelectedWeek(weekParam));
+    } else if (initialWeekRef.current) {
+      history.replace({
+        pathname: location.pathname,
+        search: `?week=${initialWeekRef.current}`,
+      });
+    }
+  }, [dispatch, history, location.pathname, location.search]);
+
+  const fetchSchedule = useCallback(
+    async (weekStart: string) => {
       try {
-        setIsLoading(true);
-        setErrMsg("");
-        const { results } = await getShifts();
-        setRows(results);
-      } catch (error) {
-        const message = getErrorMessage(error);
-        setErrMsg(message);
+        dispatch(setLoading(true));
+        dispatch(setError(null));
+        const [shiftResponse, weekResponse] = await Promise.all([
+          getShifts({ weekStartDate: weekStart }),
+          getWeekByStart(weekStart),
+        ]);
+        dispatch(setShifts(shiftResponse.results));
+        dispatch(setWeekInfo(weekResponse.results));
+      } catch (err) {
+        const message = getErrorMessage(err);
+        dispatch(setError(message));
       } finally {
-        setIsLoading(false);
+        dispatch(setLoading(false));
       }
-    };
+    },
+    [dispatch]
+  );
 
-    getData();
-  }, []);
+  useEffect(() => {
+    if (!selectedWeekStart) {
+      return;
+    }
 
-  const columns = [
-    {
-      id: "name",
-      name: "Name",
-      selector: (row: ShiftData) => row.name || "",
-      sortable: true,
-    },
-    {
-      id: "date",
-      name: "Date",
-      selector: (row: ShiftData) => row.date || "",
-      sortable: true,
-    },
-    {
-      id: "startTime",
-      name: "Start Time",
-      selector: (row: ShiftData) => row.startTime || "",
-      sortable: true,
-    },
-    {
-      id: "endTime",
-      name: "End Time",
-      selector: (row: ShiftData) => row.endTime || "",
-      sortable: true,
-    },
-    {
-      id: "actions",
-      name: "Actions",
-      cell: (row: ShiftData) => (
-        <ActionButton id={row.id} onDelete={() => onDeleteClick(row.id)} />
-      ),
-      ignoreRowClick: true,
-      allowOverflow: true,
-      button: true,
-    },
-  ];
+    setDatePickerValue(parseISO(selectedWeekStart));
+    fetchSchedule(selectedWeekStart);
+  }, [fetchSchedule, selectedWeekStart]);
 
-  const deleteDataById = async () => {
+  const weekRangeLabel = useMemo(() => {
+    if (!selectedWeekStart || !selectedWeekEnd) {
+      return "";
+    }
+
+    const startLabel = format(parseISO(selectedWeekStart), "MMM d");
+    const endLabel = format(parseISO(selectedWeekEnd), "MMM d");
+    return `${startLabel} - ${endLabel}`;
+  }, [selectedWeekStart, selectedWeekEnd]);
+
+  const handleWeekNavigation = (weeksToShift: number) => {
+    if (!selectedWeekStart) {
+      return;
+    }
+
+    const nextWeekStart = addWeeks(parseISO(selectedWeekStart), weeksToShift);
+    const normalizedStart = format(startOfWeek(nextWeekStart, { weekStartsOn: 1 }), "yyyy-MM-dd");
+    history.push({ pathname: "/shift", search: `?week=${normalizedStart}` });
+  };
+
+  const handleWeekSelection = (value: Date | null) => {
+    setIsDatePickerOpen(false);
+    if (!value) {
+      return;
+    }
+
+    const normalizedStart = format(startOfWeek(value, { weekStartsOn: 1 }), "yyyy-MM-dd");
+    history.push({ pathname: "/shift", search: `?week=${normalizedStart}` });
+  };
+
+  const handleAddShift = () => {
+    history.push(`/shift/add?week=${selectedWeekStart}`);
+  };
+
+  const handleEditShift = (id: string) => {
+    history.push(`/shift/${id}/edit?week=${selectedWeekStart}`);
+  };
+
+  const handleDeleteClick = (id: string) => {
+    setDeleteId(id);
+    setDeleteDialogOpen(true);
+  };
+
+  const closeDeleteDialog = () => {
+    setDeleteDialogOpen(false);
+    setDeleteId(null);
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteId) {
+      return;
+    }
+
     try {
       setDeleteLoading(true);
-      setErrMsg("");
-
-      if (selectedId === null) {
-        throw new Error("ID is null");
-      }
-
-      await deleteShiftById(selectedId);
-
-      const tempRows = [...rows];
-      const idx = tempRows.findIndex((v) => v.id === selectedId);
-      tempRows.splice(idx, 1);
-      setRows(tempRows);
-    } catch (error) {
-      const message = getErrorMessage(error);
-      setErrMsg(message);
+      dispatch(setError(null));
+      await deleteShiftById(deleteId);
+      dispatch(removeShift(deleteId));
+      closeDeleteDialog();
+    } catch (err) {
+      const message = getErrorMessage(err);
+      dispatch(setError(message));
     } finally {
       setDeleteLoading(false);
-      onCloseDeleteDialog();
     }
   };
 
+  const openPublishDialog = () => {
+    setPublishDialogOpen(true);
+  };
+
+  const closePublishDialog = () => {
+    setPublishDialogOpen(false);
+  };
+
+  const confirmPublish = async () => {
+    try {
+      dispatch(setPublishing(true));
+      dispatch(setError(null));
+      await publishWeekRequest(selectedWeekStart);
+      closePublishDialog();
+      await fetchSchedule(selectedWeekStart);
+    } catch (err) {
+      const message = getErrorMessage(err);
+      dispatch(setError(message));
+    } finally {
+      dispatch(setPublishing(false));
+    }
+  };
+
+  const isWeekPublished = weekInfo?.isPublished ?? false;
+
+  const publishedLabel = useMemo(() => {
+    if (!weekInfo?.publishedAt) {
+      return "";
+    }
+
+    return `Week published on ${format(parseISO(weekInfo.publishedAt), "d MMM yyyy, HH:mm")}`;
+  }, [weekInfo?.publishedAt]);
+
+  const renderTableBody = () => {
+    if (!shifts.length) {
+      return (
+        <TableRow>
+          <TableCell colSpan={5} align="center" sx={{ py: 6, color: "text.secondary" }}>
+            There are no records to display
+          </TableCell>
+        </TableRow>
+      );
+    }
+
+    return shifts.map((shift) => (
+      <TableRow key={shift.id}>
+        <TableCell>{shift.name}</TableCell>
+        <TableCell>{format(parseISO(shift.date), "yyyy-MM-dd")}</TableCell>
+        <TableCell>{shift.startTime}</TableCell>
+        <TableCell>{shift.endTime}</TableCell>
+        <TableCell align="right">
+          <IconButton
+            size="small"
+            aria-label="edit"
+            onClick={() => handleEditShift(shift.id)}
+            disabled={isWeekPublished}
+          >
+            <EditIcon fontSize="small" />
+          </IconButton>
+          <IconButton
+            size="small"
+            aria-label="delete"
+            onClick={() => handleDeleteClick(shift.id)}
+            disabled={isWeekPublished}
+          >
+            <DeleteIcon fontSize="small" />
+          </IconButton>
+        </TableCell>
+      </TableRow>
+    ));
+  };
+
   return (
-    <Grid container spacing={3}>
-      <Grid item xs={12}>
-        <Card sx={{ minWidth: 275 }}>
-          <CardContent>
-            {errMsg.length > 0 ? (
-              <Alert severity="error">{errMsg}</Alert>
-            ) : (
-              <></>
-            )}
-            <DataTable
-              title="Shifts"
-              columns={columns}
-              data={rows}
-              progressPending={isLoading}
-              noDataComponent="No shifts found"
-              defaultSortFieldId="name"
-              dense
-            />
-          </CardContent>
-        </Card>
+    <LocalizationProvider dateAdapter={AdapterDateFns}>
+      <Grid container spacing={3}>
+        <Grid item xs={12}>
+          <Card sx={{ minWidth: 275, overflow: "hidden" }}>
+            <Box
+              sx={{
+                backgroundColor: theme.customColors.navy,
+                color: "white",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                px: 3,
+                py: 2,
+                flexWrap: "wrap",
+                gap: 2,
+              }}
+            >
+              <Box display="flex" alignItems="center" gap={1}>
+                <IconButton
+                  color="inherit"
+                  onClick={() => handleWeekNavigation(-1)}
+                  aria-label="previous week"
+                  size="small"
+                >
+                  <ChevronLeftIcon sx={{ color: "white" }} />
+                </IconButton>
+                <Button
+                  variant="text"
+                  onClick={() => setIsDatePickerOpen(true)}
+                  startIcon={<CalendarMonthIcon sx={{ color: "white" }} />}
+                  sx={{
+                    color: "white",
+                    fontWeight: 600,
+                    textTransform: "none",
+                    fontSize: 18,
+                  }}
+                >
+                  {weekRangeLabel}
+                </Button>
+                <IconButton
+                  color="inherit"
+                  onClick={() => handleWeekNavigation(1)}
+                  aria-label="next week"
+                  size="small"
+                >
+                  <ChevronRightIcon sx={{ color: "white" }} />
+                </IconButton>
+              </Box>
+              <Box display="flex" alignItems="center" gap={2}>
+                {isWeekPublished && publishedLabel && (
+                  <Typography
+                    sx={{
+                      color: theme.customColors.turquoise,
+                      fontWeight: 600,
+                    }}
+                  >
+                    {publishedLabel}
+                  </Typography>
+                )}
+                <Button
+                  variant="contained"
+                  onClick={handleAddShift}
+                  disabled={isWeekPublished}
+                  sx={{
+                    backgroundColor: theme.customColors.turquoise,
+                    color: "white",
+                    fontWeight: 600,
+                    "&:hover": {
+                      backgroundColor: theme.customColors.turquoise,
+                    },
+                  }}
+                >
+                  Add Shift
+                </Button>
+                <Button
+                  variant="contained"
+                  onClick={openPublishDialog}
+                  disabled={isWeekPublished || shifts.length === 0 || publishing}
+                  sx={{
+                    backgroundColor: "white",
+                    color: theme.customColors.navy,
+                    fontWeight: 600,
+                    "&:hover": {
+                      backgroundColor: "white",
+                    },
+                  }}
+                >
+                  {publishing ? <CircularProgress size={20} /> : "Publish"}
+                </Button>
+              </Box>
+            </Box>
+            <CardContent>
+              {error && (
+                <Alert
+                  severity="error"
+                  sx={{ mb: 2 }}
+                  onClose={() => dispatch(setError(null))}
+                >
+                  {error}
+                </Alert>
+              )}
+              {loading && <LinearProgress sx={{ mb: 2 }} />}
+              <Table>
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Name</TableCell>
+                    <TableCell>Date</TableCell>
+                    <TableCell>Start Time</TableCell>
+                    <TableCell>End Time</TableCell>
+                    <TableCell align="right">Actions</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>{renderTableBody()}</TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </Grid>
       </Grid>
-      <Fab
-        size="medium"
-        aria-label="add"
-        onClick={() => history.push("/shift/add")}
-        sx={{
-          position: "fixed",
-          bottom: 40,
-          right: 40,
-          backgroundColor: "white",
-          color: theme.customColors.turquoise,
+      <DatePicker
+        open={isDatePickerOpen}
+        onClose={() => setIsDatePickerOpen(false)}
+        value={datePickerValue}
+        onChange={handleWeekSelection}
+        slotProps={{
+          textField: { sx: { display: "none" } },
         }}
-      >
-        <AddIcon />
-      </Fab>
+      />
       <ConfirmDialog
         title="Delete Confirmation"
-        description={`Do you want to delete this data ?`}
-        onClose={onCloseDeleteDialog}
-        open={showDeleteConfirm}
-        onYes={deleteDataById}
+        description="Do you want to delete this shift?"
+        onClose={closeDeleteDialog}
+        open={deleteDialogOpen}
+        onYes={confirmDelete}
         loading={deleteLoading}
+        confirmLabel="Delete"
       />
-    </Grid>
+      <ConfirmDialog
+        title="Publish Week"
+        description="Are you sure you want to publish?"
+        onClose={closePublishDialog}
+        open={publishDialogOpen}
+        onYes={confirmPublish}
+        loading={publishing}
+        confirmLabel="Publish"
+      />
+    </LocalizationProvider>
   );
 };
 

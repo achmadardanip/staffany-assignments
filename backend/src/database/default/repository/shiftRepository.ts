@@ -4,6 +4,7 @@ import {
   FindOneOptions,
   FindOptionsWhere,
   DeleteResult,
+  UpdateResult,
 } from "typeorm";
 import moduleLogger from "../../../shared/functions/logger";
 import Shift from "../entity/shift";
@@ -58,7 +59,7 @@ export const updateById = async (
   logger.info("Update by id");
   const repository = getRepository(Shift);
   await repository.update(id, payload);
-  return findById(id);
+  return findById(id, { relations: ["week"] });
 };
 
 export const deleteById = async (
@@ -68,3 +69,13 @@ export const deleteById = async (
   const repository = getRepository(Shift);
   return await repository.delete(id);
 };
+
+export const updateWhere = async (
+  where: FindOptionsWhere<Shift>,
+  payload: QueryDeepPartialEntity<Shift>
+): Promise<UpdateResult> => {
+  logger.info("Update where");
+  const repository = getRepository(Shift);
+  return repository.update(where, payload);
+};
+
