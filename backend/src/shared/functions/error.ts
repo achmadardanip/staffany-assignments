@@ -7,13 +7,14 @@ export const errorHandler = (h: ResponseToolkit, err: any) => {
     return h.response({
       error: err.name,
       statusCode: err.status,
-      message: err.message
+      message: err.message,
+      data: err.data,
     } as IErrorResponse).code(err.status);
   }
 
   return h.response({
     statusCode: 500,
     error: "Internal server error",
-    message: err.message
+    message: err.message,
   } as IErrorResponse).code(500);
 }

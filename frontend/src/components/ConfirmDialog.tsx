@@ -14,6 +14,8 @@ interface Prop {
   onClose: () => void;
   onYes: () => void;
   loading?: boolean;
+  confirmLabel?: string;
+  cancelLabel?: string;
 }
 
 const ConfirmDialog: FunctionComponent<Prop> = ({
@@ -23,6 +25,8 @@ const ConfirmDialog: FunctionComponent<Prop> = ({
   title,
   description,
   loading = false,
+  confirmLabel = "Yes",
+  cancelLabel = "Cancel",
 }) => {
   return (
     <Dialog
@@ -44,10 +48,10 @@ const ConfirmDialog: FunctionComponent<Prop> = ({
         ) : (
           <div>
             <Button onClick={() => onClose()} color="primary">
-              Cancel
+              {cancelLabel}
             </Button>
             <Button onClick={() => onYes()} color="primary" autoFocus>
-              Yes
+              {confirmLabel}
             </Button>
           </div>
         )}

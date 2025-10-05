@@ -6,3 +6,4 @@ export const idDto = Joi.object({
 
 export * from "./filter";
 export * from "./shift";
+export * from "./week";
