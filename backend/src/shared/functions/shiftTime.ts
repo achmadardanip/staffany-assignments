@@ -55,12 +55,12 @@ export const calculateShiftInterval = (
     throw new HttpError(400, "Shift duration must be shorter than 24 hours");
   }
 
-  const startDate = parseISO(`${date}`);
+  const startDate = parseISO(date);
   if (Number.isNaN(startDate.getTime())) {
     throw new HttpError(400, "Invalid date value");
   }
 
-  const startAt = addMinutes(new Date(`${date}T00:00:00.000Z`), startMinutes);
+  const startAt = addMinutes(parseISO(`${date}T00:00:00.000Z`), startMinutes);
   const endAt = addMinutes(startAt, duration);
 
   return {
