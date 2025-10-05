@@ -12,7 +12,7 @@ import IconButton from "@mui/material/IconButton";
 import Container from "@mui/material/Container";
 import MenuIcon from "@mui/icons-material/Menu";
 import ChevronLeftIcon from "@mui/icons-material/ChevronLeft";
-import { mainListItems } from "../components/ListItems";
+import { MainListItems } from "../components/ListItems";
 
 function Copyright() {
   return (
@@ -34,6 +34,8 @@ const AppBar = styled(MuiAppBar, {
   shouldForwardProp: (prop) => prop !== "open",
 })<AppBarProps>(({ theme, open }) => ({
   zIndex: theme.zIndex.drawer + 1,
+  backgroundColor: 'transparent',
+  boxShadow: 'none',
   transition: theme.transitions.create(["width", "margin"], {
     easing: theme.transitions.easing.sharp,
     duration: theme.transitions.duration.leavingScreen,
@@ -132,58 +134,73 @@ interface Props {
 
 const Dashboard: FunctionComponent<Props> = ({ children }) => {
   const [open, setOpen] = React.useState(true);
-  const handleDrawerOpen = () => {
-    setOpen(true);
-  };
-  const handleDrawerClose = () => {
-    setOpen(false);
+  
+  const toggleDrawer = () => {
+    setOpen(!open);
   };
 
   return (
     <Box sx={{ display: "flex" }}>
       <CssBaseline />
-      <AppBar position="absolute" open={open}>
-        <Toolbar sx={{ pr: "24px" }}>
+      <AppBar position="absolute" open={open} sx={{ 
+        backgroundColor: '#1A2A3A', 
+        height: '64px',
+        boxShadow: 'none'
+      }}>
+        <Toolbar sx={{ 
+          pr: "24px", 
+          pl: "24px",
+          py: "16px",
+          minHeight: '64px !important',
+          display: 'flex',
+          alignItems: 'center'
+        }}>
           <IconButton
             edge="start"
             color="inherit"
-            aria-label="open drawer"
-            onClick={handleDrawerOpen}
+            aria-label="toggle drawer"
+            onClick={toggleDrawer}
             sx={{
-              marginRight: "36px",
-              ...(open && { display: "none" }),
+              marginRight: "16px",
+              color: '#FFFFFF'
             }}
           >
-            <MenuIcon />
+            {open ? <ChevronLeftIcon /> : <MenuIcon />}
           </IconButton>
           <Typography
             component="h1"
             variant="h6"
-            color="inherit"
             noWrap
-            sx={{ flexGrow: 1 }}
+            sx={{ 
+              flexGrow: 1,
+              color: '#FFFFFF',
+              fontSize: '20px',
+              fontWeight: 600,
+              fontFamily: 'Roboto, sans-serif'
+            }}
           >
             StaffAny Scheduler
           </Typography>
         </Toolbar>
       </AppBar>
-      <Drawer variant="permanent" open={open}>
-        <DrawerHeader>
-          <IconButton onClick={handleDrawerClose}>
+      <Drawer variant="permanent" open={open} sx={{
+        '& .MuiDrawer-paper': {
+          backgroundColor: '#F5F5F5',
+          borderRight: '1px solid #E5E7EB',
+        }
+      }}>
+        <DrawerHeader sx={{ display: open ? 'flex' : 'none' }}>
+          <IconButton onClick={toggleDrawer} sx={{ color: '#374151', ml: 'auto' }}>
             <ChevronLeftIcon />
           </IconButton>
         </DrawerHeader>
-        <Divider />
-        <List>{mainListItems}</List>
+        <List><MainListItems open={open} toggleDrawer={toggleDrawer} /></List>
       </Drawer>
       <Main open={open}>
         <DrawerHeader />
-        <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
+        <Box sx={{ maxWidth: '100%', margin: 0, padding: 0 }}>
           {children}
-          <Box pt={4}>
-            <Copyright />
-          </Box>
-        </Container>
+        </Box>
       </Main>
     </Box>
   );

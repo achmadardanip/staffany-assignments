@@ -3,30 +3,28 @@ import {
   Alert,
   Box,
   Button,
-  Card,
-  CardContent,
   Dialog,
   DialogActions,
   DialogContent,
   DialogContentText,
   DialogTitle,
-  Grid,
   TextField,
   Typography,
+  InputAdornment,
+  Divider,
 } from "@mui/material";
 import { useForm } from "react-hook-form";
 import { joiResolver } from "@hookform/resolvers/joi";
 import { useHistory, useLocation, useParams } from "react-router-dom";
 import Joi from "joi";
 import { format, parseISO, setMinutes, setSeconds, startOfWeek, addHours } from "date-fns";
-import ChevronLeftIcon from "@mui/icons-material/ChevronLeft";
+import CalendarTodayIcon from "@mui/icons-material/CalendarToday";
 import { getErrorMessage } from "../helper/error";
 import {
   createShifts,
   getShiftById,
   updateShiftById,
 } from "../helper/api/shift";
-import { useTheme } from "@mui/material/styles";
 
 interface IFormInput {
   name: string;
@@ -54,23 +52,36 @@ const getDefaultTimes = () => {
   return { startTime, endTime };
 };
 
+const getDefaultDate = (weekParam?: string | null) => {
+  if (weekParam) {
+    // Use the first day of the selected week in yyyy-MM-dd format for HTML5 date input
+    return weekParam;
+  }
+  // Default to current date in yyyy-MM-dd format for HTML5 date input
+  const currentDate = new Date();
+  return format(currentDate, "yyyy-MM-dd");
+};
+
+const getDisplayDate = (dateString: string) => {
+  // Convert yyyy-MM-dd to dd.mm.yyyy for display
+  try {
+    const date = parseISO(dateString);
+    return format(date, "dd.MM.yyyy");
+  } catch {
+    return dateString;
+  }
+};
+
 const ShiftForm: FunctionComponent = () => {
   const history = useHistory();
   const { id } = useParams<RouteParams>();
   const isEdit = Boolean(id);
   const location = useLocation();
-  const theme = useTheme();
 
   const searchParams = useMemo(() => new URLSearchParams(location.search), [location.search]);
   const weekParam = searchParams.get("week");
 
-  const defaultWeekStart = useMemo(() => {
-    if (weekParam) {
-      return weekParam;
-    }
-    return format(startOfWeek(new Date(), { weekStartsOn: 1 }), "yyyy-MM-dd");
-  }, [weekParam]);
-
+  const defaultDate = getDefaultDate(weekParam);
   const { startTime: defaultStart, endTime: defaultEnd } = getDefaultTimes();
 
   const {
@@ -83,7 +94,7 @@ const ShiftForm: FunctionComponent = () => {
     resolver: joiResolver(shiftSchema),
     defaultValues: {
       name: "",
-      date: defaultWeekStart,
+      date: defaultDate,
       startTime: defaultStart,
       endTime: defaultEnd,
     },
@@ -123,21 +134,35 @@ const ShiftForm: FunctionComponent = () => {
 
   const goBack = () => {
     const date = getValues("date");
-    const targetWeek = format(startOfWeek(parseISO(date), { weekStartsOn: 1 }), "yyyy-MM-dd");
-    history.push(`/shift?week=${targetWeek}`);
+    try {
+      // Date is now in yyyy-MM-dd format from HTML5 date input
+      const parsedDate = parseISO(date);
+      const targetWeek = format(startOfWeek(parsedDate, { weekStartsOn: 1 }), "yyyy-MM-dd");
+      history.push(`/shift?week=${targetWeek}`);
+    } catch (error) {
+      // If date parsing fails, just go back to shifts page
+      history.push("/shifts");
+    }
   };
 
   const redirectToWeek = (date: string, weekFromResponse?: string) => {
-    const weekStart = weekFromResponse
-      ? weekFromResponse
-      : format(startOfWeek(parseISO(date), { weekStartsOn: 1 }), "yyyy-MM-dd");
-    history.push(`/shift?week=${weekStart}`);
+    try {
+      const weekStart = weekFromResponse
+        ? weekFromResponse
+        : format(startOfWeek(parseISO(date), { weekStartsOn: 1 }), "yyyy-MM-dd");
+      history.push(`/shift?week=${weekStart}`);
+    } catch (error) {
+      // If date parsing fails, just go back to shifts page
+      history.push("/shifts");
+    }
   };
 
   const submitShift = async (formData: IFormInput, ignoreClash = false) => {
     try {
       setIsSubmitting(true);
       setError("");
+      
+      // Date is already in yyyy-MM-dd format from HTML5 date input
       const payload = { ...formData, ignoreClash } as any;
       let response;
       if (isEdit) {
@@ -175,136 +200,385 @@ const ShiftForm: FunctionComponent = () => {
   };
 
   return (
-    <Grid container spacing={3}>
-      <Grid item xs={12}>
+    <Box sx={{ 
+      minHeight: '100vh', 
+      display: 'flex', 
+      justifyContent: 'center', 
+      pt: '20px',
+      pb: 4,
+    }}>
+      <Box sx={{
+        backgroundColor: '#FFFFFF',
+        borderRadius: '8px',
+        boxShadow: '0 2px 8px rgba(0, 0, 0, 0.08)',
+        maxWidth: '960px',
+        width: '100%',
+        mx: 'auto',
+        p: '24px',
+        position: 'relative',
+        alignSelf: 'flex-start',
+      }}>
         <form onSubmit={handleSubmit(onSubmit)}>
-          <Card>
-            <Box
-              sx={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                px: 3,
-                py: 2,
-                borderBottom: `1px solid ${theme.palette.divider}`,
-                backgroundColor: theme.customColors.navy,
-                color: "white",
-              }}
-            >
-              <Button
-                variant="text"
-                onClick={goBack}
-                startIcon={<ChevronLeftIcon sx={{ color: "white" }} />}
-                sx={{
-                  color: "white",
-                  fontWeight: 600,
-                  textTransform: "none",
-                }}
-              >
-                Back
-              </Button>
-              <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                Shift
+          {/* Back Button */}
+          <Button
+            onClick={goBack}
+            sx={{
+              backgroundColor: '#D9534F',
+              color: '#FFFFFF',
+              fontWeight: '500',
+              fontFamily: 'Roboto, sans-serif',
+              fontSize: '14px',
+              height: '38px',
+              px: '18px',
+              borderRadius: '5px',
+              textTransform: 'none',
+              mb: '16px',
+              alignSelf: 'flex-start',
+              '&:hover': {
+                backgroundColor: '#C9302C',
+              },
+              '&:focus': {
+                backgroundColor: '#C9302C',
+              },
+            }}
+          >
+            BACK
+          </Button>
+
+          {/* Form Content */}
+          <Box sx={{ 
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '24px',
+            pb: '60px',
+          }}>
+            {/* Error Alert */}
+            {error && (
+              <Alert severity="error" sx={{ mb: 2 }}>
+                {error}
+              </Alert>
+            )}
+
+            {/* Shift Name Field */}
+            <Box sx={{ width: '100%' }}>
+              <Typography sx={{
+                fontSize: '12px',
+                color: '#6B6B6B',
+                mb: '4px',
+                fontFamily: 'Roboto, sans-serif',
+              }}>
+                Shift Name*
               </Typography>
-              <Button
-                type="submit"
-                variant="contained"
-                disabled={isSubmitting}
+              <TextField
+                fullWidth
+                placeholder="Enter shift name"
+                variant="standard"
+                inputProps={{ ...register("name") }}
+                error={!!errors.name}
+                helperText={errors.name?.message}
                 sx={{
-                  backgroundColor: theme.customColors.turquoise,
-                  color: "white",
-                  fontWeight: 600,
-                  "&:hover": {
-                    backgroundColor: theme.customColors.turquoise,
+                  '& .MuiInput-underline:before': {
+                    borderBottomColor: '#CCC',
+                  },
+                  '& .MuiInput-underline:after': {
+                    borderBottomColor: '#22B8B1',
+                    borderBottomWidth: '1px',
+                  },
+                  '& .MuiInputBase-input': {
+                    color: '#2E2E2E',
+                    fontSize: '14px',
+                    fontFamily: 'Roboto, sans-serif',
                   },
                 }}
-              >
-                {isSubmitting ? "Saving..." : "Save"}
-              </Button>
+              />
             </Box>
-            <CardContent>
-              {error && (
-                <Alert severity="error" sx={{ mb: 3 }}>
-                  {error}
-                </Alert>
-              )}
-              <Grid container spacing={3}>
-                <Grid item xs={12} md={6}>
-                  <TextField
-                    fullWidth
-                    label="Shift Name"
-                    inputProps={{ ...register("name") }}
-                    error={!!errors.name}
-                    helperText={errors.name?.message}
-                  />
-                </Grid>
-                <Grid item xs={12} md={6}>
-                  <TextField
-                    fullWidth
-                    label="Date"
-                    type="date"
-                    inputProps={{ ...register("date") }}
-                    error={!!errors.date}
-                    helperText={errors.date?.message}
-                    InputLabelProps={{ shrink: true }}
-                  />
-                </Grid>
-                <Grid item xs={12} md={6}>
-                  <TextField
-                    fullWidth
-                    label="Start Time"
-                    type="time"
-                    inputProps={{ ...register("startTime") }}
-                    error={!!errors.startTime}
-                    helperText={errors.startTime?.message}
-                    InputLabelProps={{ shrink: true }}
-                  />
-                </Grid>
-                <Grid item xs={12} md={6}>
-                  <TextField
-                    fullWidth
-                    label="End Time"
-                    type="time"
-                    inputProps={{ ...register("endTime") }}
-                    error={!!errors.endTime}
-                    helperText={errors.endTime?.message}
-                    InputLabelProps={{ shrink: true }}
-                  />
-                </Grid>
-              </Grid>
-            </CardContent>
-          </Card>
+
+            {/* Three Column Grid Layout */}
+            <Box sx={{ 
+              display: 'grid',
+              gridTemplateColumns: '1fr 1fr 1fr',
+              gap: '24px',
+              width: '100%',
+            }}>
+              {/* Event Date */}
+              <Box>
+                <Typography sx={{
+                  fontSize: '12px',
+                  color: '#6B6B6B',
+                  mb: '4px',
+                  fontFamily: 'Roboto, sans-serif',
+                }}>
+                  Event date
+                </Typography>
+                <TextField
+                  fullWidth
+                  type="date"
+                  variant="standard"
+                  inputProps={{ 
+                    ...register("date"),
+                    style: { paddingLeft: '36px' }
+                  }}
+                  error={!!errors.date}
+                  helperText={errors.date?.message}
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <CalendarTodayIcon sx={{ 
+                          color: '#666', 
+                          fontSize: '18px',
+                          mr: 1,
+                        }} />
+                      </InputAdornment>
+                    ),
+                  }}
+                  sx={{
+                    '& .MuiInput-underline:before': {
+                      borderBottomColor: '#CCC',
+                    },
+                    '& .MuiInput-underline:after': {
+                      borderBottomColor: '#22B8B1',
+                      borderBottomWidth: '1px',
+                    },
+                    '& .MuiInputBase-input': {
+                      color: '#2E2E2E',
+                      fontSize: '14px',
+                      fontFamily: 'Roboto, sans-serif',
+                    },
+                    '& input[type="date"]::-webkit-calendar-picker-indicator': {
+                      opacity: 0,
+                      position: 'absolute',
+                      right: 0,
+                      width: '100%',
+                      height: '100%',
+                      cursor: 'pointer',
+                    },
+                  }}
+                />
+              </Box>
+
+              {/* Start Time */}
+              <Box>
+                <Typography sx={{
+                  fontSize: '12px',
+                  color: '#6B6B6B',
+                  mb: '4px',
+                  fontFamily: 'Roboto, sans-serif',
+                }}>
+                  Start Time
+                </Typography>
+                <TextField
+                  fullWidth
+                  type="time"
+                  variant="standard"
+                  inputProps={{ ...register("startTime") }}
+                  error={!!errors.startTime}
+                  helperText={errors.startTime?.message}
+                  sx={{
+                    '& .MuiInput-underline:before': {
+                      borderBottomColor: '#CCC',
+                    },
+                    '& .MuiInput-underline:after': {
+                      borderBottomColor: '#22B8B1',
+                      borderBottomWidth: '1px',
+                    },
+                    '& .MuiInputBase-input': {
+                      color: '#2E2E2E',
+                      fontSize: '14px',
+                      fontFamily: 'Roboto, sans-serif',
+                    },
+                  }}
+                />
+              </Box>
+
+              {/* End Time */}
+              <Box>
+                <Typography sx={{
+                  fontSize: '12px',
+                  color: '#6B6B6B',
+                  mb: '4px',
+                  fontFamily: 'Roboto, sans-serif',
+                }}>
+                  End Time
+                </Typography>
+                <TextField
+                  fullWidth
+                  type="time"
+                  variant="standard"
+                  inputProps={{ ...register("endTime") }}
+                  error={!!errors.endTime}
+                  helperText={errors.endTime?.message}
+                  sx={{
+                    '& .MuiInput-underline:before': {
+                      borderBottomColor: '#CCC',
+                    },
+                    '& .MuiInput-underline:after': {
+                      borderBottomColor: '#22B8B1',
+                      borderBottomWidth: '1px',
+                    },
+                    '& .MuiInputBase-input': {
+                      color: '#2E2E2E',
+                      fontSize: '14px',
+                      fontFamily: 'Roboto, sans-serif',
+                    },
+                  }}
+                />
+              </Box>
+            </Box>
+          </Box>
+
+          {/* Save Button */}
+          <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: '24px' }}>
+            <Button
+              type="submit"
+              disabled={isSubmitting}
+              sx={{
+                backgroundColor: '#22B8B1',
+                color: 'white',
+                fontWeight: 'bold',
+                fontSize: '14px',
+                textTransform: 'uppercase',
+                height: '36px',
+                minWidth: '100px',
+                borderRadius: '6px',
+                border: 'none',
+                '&:hover': {
+                  backgroundColor: '#1DA19B',
+                  boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                },
+                '&:disabled': {
+                  backgroundColor: '#9CA3AF',
+                },
+              }}
+            >
+              {isSubmitting ? 'SAVING...' : 'SAVE'}
+            </Button>
+          </Box>
         </form>
-      </Grid>
-      <Dialog open={!!clashShift} onClose={() => setClashShift(null)}>
-        <DialogTitle>Shift Clash Warning</DialogTitle>
-        <DialogContent>
-          <DialogContentText>
-            This shift clashes with an existing shift.
+        
+        {/* Card Footer - Copyright outside form */}
+        <Divider sx={{ borderColor: '#E5E7EB', mx: -3 }} />
+        <Box sx={{ 
+          pt: '14px',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+        }}>
+          <Typography sx={{ 
+            fontSize: '12px', 
+            color: '#9AA0A6',
+            fontFamily: 'Roboto, sans-serif',
+            textAlign: 'center',
+          }}>
+            Copyright © StaffAny Take Home Test 2025.
+          </Typography>
+        </Box>
+      </Box>
+      {/* Clash Dialog */}
+      <Dialog 
+        open={!!clashShift} 
+        onClose={() => setClashShift(null)}
+        PaperProps={{
+          sx: {
+            borderRadius: '8px',
+            width: '450px',
+            maxWidth: '450px',
+            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+          }
+        }}
+      >
+        <DialogTitle sx={{
+          fontSize: '18px',
+          fontWeight: 'bold',
+          color: '#1F2937',
+          textAlign: 'left',
+          pb: 1,
+          pt: 3,
+          px: 3,
+        }}>
+          Shift Clash Warning
+        </DialogTitle>
+        <DialogContent sx={{ px: 3, py: 0 }}>
+          <DialogContentText sx={{
+            color: '#1F2937',
+            fontSize: '14px',
+            lineHeight: 1.5,
+            textAlign: 'left',
+            mb: 2,
+          }}>
+            This shift clashes with an existing shift:
           </DialogContentText>
           {clashShift && (
-            <Box mt={2}>
-              <Typography variant="subtitle1" fontWeight={600} gutterBottom>
+            <Box sx={{ my: 2 }}>
+              <Typography sx={{ 
+                fontWeight: 'bold', 
+                fontSize: '14px',
+                color: '#1F2937',
+                mb: 1,
+              }}>
                 {clashShift.name}
               </Typography>
-              <Typography variant="body2">Date: {format(parseISO(clashShift.date), "yyyy-MM-dd")}</Typography>
-              <Typography variant="body2">
+              <Typography sx={{ 
+                fontSize: '14px',
+                color: '#1F2937',
+                mb: 0.5,
+              }}>
+                Date: {format(parseISO(clashShift.date), "dd.MM.yyyy")}
+              </Typography>
+              <Typography sx={{ 
+                fontSize: '14px',
+                color: '#1F2937',
+                mb: 1,
+              }}>
                 Time: {clashShift.startTime} - {clashShift.endTime}
               </Typography>
             </Box>
           )}
-          <DialogContentText sx={{ mt: 2 }}>
+          <DialogContentText sx={{
+            color: '#1F2937',
+            fontSize: '14px',
+            lineHeight: 1.5,
+            textAlign: 'left',
+            mt: 2,
+          }}>
             Do you want to proceed anyway?
           </DialogContentText>
         </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setClashShift(null)}>Cancel</Button>
-          <Button onClick={handleIgnoreClash} variant="contained">
+        <DialogActions sx={{ justifyContent: 'flex-end', gap: 1, px: 3, pb: 3, pt: 2 }}>
+          <Button 
+            onClick={() => setClashShift(null)}
+            sx={{
+              backgroundColor: 'transparent',
+              color: '#6B7280',
+              textTransform: 'uppercase',
+              fontSize: '13px',
+              fontWeight: 500,
+              border: 'none',
+              '&:hover': {
+                backgroundColor: 'rgba(0,0,0,0.04)',
+              },
+            }}
+          >
+            Cancel
+          </Button>
+          <Button 
+            onClick={handleIgnoreClash}
+            sx={{
+              backgroundColor: 'transparent',
+              color: '#1F2937',
+              textTransform: 'uppercase',
+              fontSize: '13px',
+              fontWeight: 600,
+              border: 'none',
+              '&:hover': {
+                backgroundColor: 'rgba(0,0,0,0.04)',
+              },
+            }}
+          >
             Ignore
           </Button>
         </DialogActions>
       </Dialog>
-    </Grid>
+    </Box>
   );
 };
 

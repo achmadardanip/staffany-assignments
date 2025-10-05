@@ -21,9 +21,12 @@ import {
   TableCell,
   TableHead,
   TableRow,
+  TablePagination,
   Typography,
+  Divider,
 } from "@mui/material";
 import ChevronLeftIcon from "@mui/icons-material/ChevronLeft";
+import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import ChevronRightIcon from "@mui/icons-material/ChevronRight";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
@@ -75,7 +78,42 @@ const Shift: FunctionComponent = () => {
   const [publishDialogOpen, setPublishDialogOpen] = useState(false);
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
   const [datePickerValue, setDatePickerValue] = useState<Date | null>(null);
+  
+  // Pagination state
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
+  
   const initialWeekRef = useRef(selectedWeekStart);
+
+  // Handle ESC key for closing date picker
+  useEffect(() => {
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && isDatePickerOpen) {
+        setIsDatePickerOpen(false);
+      }
+    };
+
+    if (isDatePickerOpen) {
+      document.addEventListener('keydown', handleEscape);
+    }
+
+    return () => {
+      document.removeEventListener('keydown', handleEscape);
+    };
+  }, [isDatePickerOpen]);
+
+  // Pagination handlers
+  const handleChangePage = (event: unknown, newPage: number) => {
+    setPage(newPage);
+  };
+
+  const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setRowsPerPage(parseInt(event.target.value, 10));
+    setPage(0);
+  };
+
+  // Paginated shifts
+  const paginatedShifts = shifts.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
 
   useEffect(() => {
     const params = new URLSearchParams(location.search);
@@ -267,8 +305,7 @@ const Shift: FunctionComponent = () => {
           <Card sx={{ minWidth: 275, overflow: "hidden" }}>
             <Box
               sx={{
-                backgroundColor: theme.customColors.navy,
-                color: "white",
+                color: "#374151",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "space-between",
@@ -285,17 +322,27 @@ const Shift: FunctionComponent = () => {
                   aria-label="previous week"
                   size="small"
                 >
-                  <ChevronLeftIcon sx={{ color: "white" }} />
+                  <ChevronLeftIcon sx={{ color: "#374151" }} />
                 </IconButton>
                 <Button
                   variant="text"
                   onClick={() => setIsDatePickerOpen(true)}
-                  startIcon={<CalendarMonthIcon sx={{ color: "white" }} />}
+                  startIcon={
+                    isWeekPublished ? (
+                      <CheckCircleIcon sx={{ color: "#22B8B1" }} />
+                    ) : (
+                      <CalendarMonthIcon sx={{ color: "#374151" }} />
+                    )
+                  }
                   sx={{
-                    color: "white",
-                    fontWeight: 600,
+                    color: isWeekPublished ? "#22B8B1" : "#374151",
+                    fontWeight: isWeekPublished ? 700 : 600,
                     textTransform: "none",
                     fontSize: 18,
+                    position: 'relative',
+                    '&:hover': {
+                      backgroundColor: isWeekPublished ? 'rgba(34, 184, 177, 0.04)' : 'rgba(55, 65, 81, 0.04)',
+                    },
                   }}
                 >
                   {weekRangeLabel}
@@ -306,18 +353,23 @@ const Shift: FunctionComponent = () => {
                   aria-label="next week"
                   size="small"
                 >
-                  <ChevronRightIcon sx={{ color: "white" }} />
+                  <ChevronRightIcon sx={{ color: "#374151" }} />
                 </IconButton>
               </Box>
               <Box display="flex" alignItems="center" gap={2}>
-                {isWeekPublished && publishedLabel && (
+                {isWeekPublished && weekInfo?.publishedAt && (
                   <Typography
                     sx={{
-                      color: theme.customColors.turquoise,
+                      color: '#22B8B1',
                       fontWeight: 600,
+                      fontSize: '14px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 1,
                     }}
                   >
-                    {publishedLabel}
+                    <CheckCircleIcon sx={{ fontSize: '16px', color: '#22B8B1' }} />
+                    Week published on {format(parseISO(weekInfo.publishedAt), "d MMM yyyy, HH:mm")}
                   </Typography>
                 )}
                 <Button
@@ -373,8 +425,104 @@ const Shift: FunctionComponent = () => {
                     <TableCell align="right">Actions</TableCell>
                   </TableRow>
                 </TableHead>
-                <TableBody>{renderTableBody()}</TableBody>
+                <TableBody>
+                  {paginatedShifts.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={5} align="center">
+                        <Typography color="textSecondary">
+                          No shifts found
+                        </Typography>
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    paginatedShifts.map((shift) => (
+                      <TableRow key={shift.id}>
+                        <TableCell>{shift.name}</TableCell>
+                        <TableCell>
+                          {format(parseISO(shift.date), "EEE, MMM d, yyyy")}
+                        </TableCell>
+                        <TableCell>{format(parseISO(`1970-01-01T${shift.startTime}`), "h:mm a")}</TableCell>
+                        <TableCell>{format(parseISO(`1970-01-01T${shift.endTime}`), "h:mm a")}</TableCell>
+                        <TableCell align="right">
+                          <IconButton
+                            size="small"
+                            onClick={() => handleEditShift(shift.id)}
+                            disabled={isWeekPublished}
+                            sx={{ mr: 1 }}
+                          >
+                            <EditIcon fontSize="small" />
+                          </IconButton>
+                          <IconButton
+                            size="small"
+                            onClick={() => handleDeleteClick(shift.id)}
+                            disabled={isWeekPublished}
+                          >
+                            <DeleteIcon fontSize="small" />
+                          </IconButton>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
               </Table>
+              
+              {/* Pagination inside card */}
+              <TablePagination
+                component="div"
+                count={shifts.length}
+                page={page}
+                onPageChange={handleChangePage}
+                rowsPerPage={rowsPerPage}
+                onRowsPerPageChange={handleChangeRowsPerPage}
+                rowsPerPageOptions={[10, 15, 20, 25, 50, 100]}
+                sx={{
+                  height: '48px',
+                  px: 3,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'flex-end',
+                  backgroundColor: 'white',
+                  border: 'none',
+                  borderTop: 'none',
+                  mt: 1,
+                  '& .MuiTablePagination-toolbar': {
+                    minHeight: '48px',
+                    paddingLeft: 0,
+                    paddingRight: 0,
+                    border: 'none',
+                  },
+                  '& .MuiTablePagination-spacer': {
+                    flex: 'none',
+                  },
+                  '& .MuiTablePagination-selectLabel': {
+                    fontSize: '14px',
+                    color: '#374151',
+                  },
+                  '& .MuiTablePagination-displayedRows': {
+                    fontSize: '14px',
+                    color: '#374151',
+                    margin: '0 16px',
+                  },
+                }}
+              />
+              
+              {/* Card Footer - Copyright */}
+              <Divider sx={{ borderColor: '#E5E7EB', mx: -3, mt: 0 }} />
+              <Box sx={{ 
+                pt: '14px',
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+              }}>
+                <Typography sx={{ 
+                  fontSize: '12px', 
+                  color: '#9AA0A6',
+                  fontFamily: 'Roboto, sans-serif',
+                  textAlign: 'center',
+                }}>
+                  Copyright © StaffAny Take Home Test 2025.
+                </Typography>
+              </Box>
             </CardContent>
           </Card>
         </Grid>
@@ -386,6 +534,39 @@ const Shift: FunctionComponent = () => {
         onChange={handleWeekSelection}
         slotProps={{
           textField: { sx: { display: "none" } },
+          popper: {
+            placement: 'bottom-start',
+            modifiers: [
+              {
+                name: 'flip',
+                enabled: true,
+                options: {
+                  altBoundary: true,
+                  rootBoundary: 'viewport',
+                  padding: 8,
+                },
+              },
+              {
+                name: 'preventOverflow',
+                enabled: true,
+                options: {
+                  altAxis: true,
+                  altBoundary: true,
+                  tether: true,
+                  rootBoundary: 'viewport',
+                  padding: 8,
+                },
+              },
+            ],
+            sx: {
+              zIndex: 1300,
+              '& .MuiPaper-root': {
+                boxShadow: '0 8px 32px rgba(0, 0, 0, 0.12)',
+                border: '1px solid #E5E7EB',
+                borderRadius: '8px',
+              },
+            },
+          },
         }}
       />
       <ConfirmDialog
