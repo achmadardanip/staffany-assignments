@@ -24,8 +24,8 @@ const mapShiftResponse = (shift: Shift) => ({
   date: shift.date,
   startTime: sanitizeTime(shift.startTime),
   endTime: sanitizeTime(shift.endTime),
-  isPublished: shift.isPublished,
-  publishedAt: shift.publishedAt,
+  isPublished: shift.week?.isPublished ?? false,
+  publishedAt: shift.week?.publishedAt ?? null,
   week: shift.week
     ? {
         id: shift.week.id,
@@ -160,8 +160,6 @@ export const create = async (payload: ICreateShift) => {
   shift.endTime = sanitizeTime(shiftPayload.endTime);
   shift.week = week;
   shift.weekId = week.id;
-  shift.isPublished = week.isPublished;
-  shift.publishedAt = week.isPublished ? week.publishedAt : null;
 
   const created = await shiftRepository.create(shift);
   const createdShift = await shiftRepository.findById(created.id, {
@@ -182,7 +180,7 @@ export const updateById = async (id: string, payload: IUpdateShift) => {
     throw new HttpError(404, "Shift not found");
   }
 
-  if (existingShift.week?.isPublished || existingShift.isPublished) {
+  if (existingShift.week?.isPublished) {
     throw new HttpError(400, "Cannot edit a published shift");
   }
 
@@ -219,8 +217,6 @@ export const updateById = async (id: string, payload: IUpdateShift) => {
     startTime: sanitizeTime(updatedData.startTime),
     endTime: sanitizeTime(updatedData.endTime),
     weekId: targetWeek.id,
-    isPublished: targetWeek.isPublished,
-    publishedAt: targetWeek.isPublished ? targetWeek.publishedAt : null,
   });
 
   if (!updatedShift) {
@@ -241,7 +237,7 @@ export const deleteById = async (id: string | string[]) => {
     throw new HttpError(404, "Shift not found");
   }
 
-  if (existingShift.week?.isPublished || existingShift.isPublished) {
+  if (existingShift.week?.isPublished) {
     throw new HttpError(400, "Cannot delete a published shift");
   }
 
