@@ -31,12 +31,6 @@ export default class Shift extends BaseTimestamp {
   })
   endTime: string;
 
-  @Column({ type: "boolean", default: false })
-  isPublished: boolean;
-
-  @Column({ type: "timestamptz", nullable: true })
-  publishedAt: Date | null;
-
   @Column({ type: "uuid" })
   weekId: string;
 

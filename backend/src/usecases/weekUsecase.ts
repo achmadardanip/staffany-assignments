@@ -3,6 +3,7 @@ import * as weekRepository from "../database/default/repository/weekRepository";
 import * as shiftRepository from "../database/default/repository/shiftRepository";
 import { getWeekBounds } from "../shared/functions";
 import { HttpError } from "../shared/classes/HttpError";
+import { dbConnection } from "../database";
 
 const mapWeekResponse = (week: {
   id?: string;
@@ -40,47 +41,52 @@ export const publishWeek = async (weekStartDate: string) => {
   const { weekStartDate: normalizedStart, weekEndDate } =
     getWeekBounds(weekStartDate);
 
-  let week = await weekRepository.findOne({ startDate: normalizedStart });
+  const connection = await dbConnection.getConnection();
+  
+  return await connection.transaction(async (transactionalEntityManager) => {
+    const weekRepo = transactionalEntityManager.getRepository("Week");
+    
+    let week = await weekRepo.findOne({ where: { startDate: normalizedStart } });
 
-  if (!week) {
-    week = await weekRepository.create({
-      startDate: normalizedStart,
-      endDate: weekEndDate,
-      isPublished: false,
-      publishedAt: null,
+    if (!week) {
+      week = await weekRepo.save({
+        startDate: normalizedStart,
+        endDate: weekEndDate,
+        isPublished: false,
+        publishedAt: null,
+      });
+    }
+
+    if (week.isPublished) {
+      throw new HttpError(400, "Week is already published");
+    }
+
+    const shiftRepo = transactionalEntityManager.getRepository("Shift");
+    const shifts = await shiftRepo.find({
+      where: {
+        date: Between(normalizedStart, weekEndDate),
+      },
     });
-  }
 
-  if (week.isPublished) {
-    throw new HttpError(400, "Week is already published");
-  }
+    if (shifts.length === 0) {
+      throw new HttpError(400, "Cannot publish an empty week");
+    }
 
-  const shifts = await shiftRepository.find({
-    where: {
-      date: Between(normalizedStart, weekEndDate),
-    },
-  });
+    const publishedAt = new Date();
 
-  if (shifts.length === 0) {
-    throw new HttpError(400, "Cannot publish an empty week");
-  }
-
-  const publishedAt = new Date();
-
-  await weekRepository.updateById(week.id, {
-    isPublished: true,
-    publishedAt,
-  });
-
-  await shiftRepository.updateWhere(
-    { weekId: week.id },
-    {
+    await weekRepo.update(week.id, {
       isPublished: true,
       publishedAt,
-    }
-  );
+    });
 
-  const updatedWeek = await weekRepository.findById(week.id);
+    const updatedWeek = await weekRepo.findOne({ where: { id: week.id } });
 
-  return mapWeekResponse(updatedWeek ?? { ...week, isPublished: true, publishedAt });
+    return mapWeekResponse({
+      id: updatedWeek?.id ?? week.id,
+      startDate: updatedWeek?.startDate ?? week.startDate,
+      endDate: updatedWeek?.endDate ?? week.endDate,
+      isPublished: true,
+      publishedAt,
+    });
+  });
 };

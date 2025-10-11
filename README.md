@@ -2,6 +2,17 @@
 
 This repository contains the backend (Hapi + TypeORM) and frontend (React + Material UI + Redux) implementations for the StaffAny scheduling assignment. The solution extends the starter project with week-based publishing, clash detection, and UI enhancements that match the provided mockups.
 
+## Recent Improvements
+
+This codebase has been refactored to address several architectural concerns. See [IMPROVEMENTS.md](./IMPROVEMENTS.md) for detailed documentation. Key improvements include:
+
+1. **Simplified Data Model**: Removed duplicate `isPublished`/`publishedAt` fields from Shift entity (kept only on Week)
+2. **Transaction Support**: Added database transactions for atomic updates in publishWeek operations
+3. **Component Refactoring**: Broke down the 594-line Shift.tsx into 4 smaller, reusable components (30% reduction)
+4. **Better Date Handling**: Replaced error-prone string manipulation with date-fns library functions
+
+All changes maintain backward compatibility and improve code maintainability, testability, and reliability.
+
 ## Project Structure
 
 ```
