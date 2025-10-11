@@ -1,4 +1,4 @@
-import { addMinutes, addDays, format, parseISO, startOfWeek } from "date-fns";
+import { addMinutes, addDays, format, parseISO, startOfWeek, parse, isValid } from "date-fns";
 import { HttpError } from "../classes/HttpError";
 
 const MINUTES_IN_DAY = 24 * 60;
@@ -15,22 +15,24 @@ const normalizeTimeString = (time: string): string => {
     throw new HttpError(400, "Invalid time format");
   }
 
-  const [hours, minutes] = time.split(":");
-  const normalizedMinutes = minutes?.slice(0, 2) ?? "00";
-
-  return `${hours.padStart(2, "0")}:${normalizedMinutes.padStart(2, "0")}`;
-};
-
-const timeToMinutes = (time: string): number => {
-  const [hourStr, minuteStr] = time.split(":");
-  const hours = Number(hourStr);
-  const minutes = Number(minuteStr);
-
-  if (Number.isNaN(hours) || Number.isNaN(minutes)) {
+  // Use date-fns to parse and validate the time
+  const parsed = parse(time, "HH:mm", new Date());
+  if (!isValid(parsed)) {
     throw new HttpError(400, "Invalid time value");
   }
 
-  return hours * 60 + minutes;
+  return format(parsed, "HH:mm");
+};
+
+const timeToMinutes = (time: string): number => {
+  // Use date-fns to parse the time instead of string manipulation
+  const parsed = parse(time, "HH:mm", new Date());
+  
+  if (!isValid(parsed)) {
+    throw new HttpError(400, "Invalid time value");
+  }
+
+  return parsed.getHours() * 60 + parsed.getMinutes();
 };
 
 export const calculateShiftInterval = (
@@ -55,12 +57,14 @@ export const calculateShiftInterval = (
     throw new HttpError(400, "Shift duration must be shorter than 24 hours");
   }
 
-  const startDate = parseISO(date);
-  if (Number.isNaN(startDate.getTime())) {
+  // Use date-fns to parse and validate the date
+  const baseDate = parseISO(date);
+  if (!isValid(baseDate)) {
     throw new HttpError(400, "Invalid date value");
   }
 
-  const startAt = addMinutes(parseISO(`${date}T00:00:00.000Z`), startMinutes);
+  // Construct start datetime using date-fns
+  const startAt = parse(`${date} ${normalizedStart}`, "yyyy-MM-dd HH:mm", new Date());
   const endAt = addMinutes(startAt, duration);
 
   return {
@@ -73,7 +77,7 @@ export const calculateShiftInterval = (
 
 export const getWeekBounds = (date: string) => {
   const parsed = parseISO(date);
-  if (Number.isNaN(parsed.getTime())) {
+  if (!isValid(parsed)) {
     throw new HttpError(400, "Invalid date value");
   }
   const start = startOfWeek(parsed, { weekStartsOn: 1 });
