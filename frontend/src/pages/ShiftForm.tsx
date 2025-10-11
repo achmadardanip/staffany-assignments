@@ -62,16 +62,6 @@ const getDefaultDate = (weekParam?: string | null) => {
   return format(currentDate, "yyyy-MM-dd");
 };
 
-const getDisplayDate = (dateString: string) => {
-  // Convert yyyy-MM-dd to dd.mm.yyyy for display
-  try {
-    const date = parseISO(dateString);
-    return format(date, "dd.MM.yyyy");
-  } catch {
-    return dateString;
-  }
-};
-
 const ShiftForm: FunctionComponent = () => {
   const history = useHistory();
   const { id } = useParams<RouteParams>();

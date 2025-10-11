@@ -9,31 +9,16 @@ import React, {
 import {
   Alert,
   Box,
-  Button,
   Card,
   CardContent,
-  CircularProgress,
+  Divider,
   Grid,
-  IconButton,
   LinearProgress,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableRow,
   TablePagination,
   Typography,
-  Divider,
 } from "@mui/material";
-import ChevronLeftIcon from "@mui/icons-material/ChevronLeft";
-import CheckCircleIcon from "@mui/icons-material/CheckCircle";
-import ChevronRightIcon from "@mui/icons-material/ChevronRight";
-import EditIcon from "@mui/icons-material/Edit";
-import DeleteIcon from "@mui/icons-material/Delete";
-import CalendarMonthIcon from "@mui/icons-material/CalendarMonth";
 import { useHistory, useLocation } from "react-router-dom";
 import { format, parseISO, addWeeks, startOfWeek } from "date-fns";
-import { useTheme } from "@mui/material/styles";
 import ConfirmDialog from "../components/ConfirmDialog";
 import { getErrorMessage } from "../helper/error";
 import {
@@ -55,9 +40,11 @@ import {
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
+import WeekNavigator from "../components/shift/WeekNavigator";
+import WeekActions from "../components/shift/WeekActions";
+import ShiftTable from "../components/shift/ShiftTable";
 
 const Shift: FunctionComponent = () => {
-  const theme = useTheme();
   const dispatch = useAppDispatch();
   const history = useHistory();
   const location = useLocation();
@@ -251,53 +238,6 @@ const Shift: FunctionComponent = () => {
 
   const isWeekPublished = weekInfo?.isPublished ?? false;
 
-  const publishedLabel = useMemo(() => {
-    if (!weekInfo?.publishedAt) {
-      return "";
-    }
-
-    return `Week published on ${format(parseISO(weekInfo.publishedAt), "d MMM yyyy, HH:mm")}`;
-  }, [weekInfo?.publishedAt]);
-
-  const renderTableBody = () => {
-    if (!shifts.length) {
-      return (
-        <TableRow>
-          <TableCell colSpan={5} align="center" sx={{ py: 6, color: "text.secondary" }}>
-            There are no records to display
-          </TableCell>
-        </TableRow>
-      );
-    }
-
-    return shifts.map((shift) => (
-      <TableRow key={shift.id}>
-        <TableCell>{shift.name}</TableCell>
-        <TableCell>{format(parseISO(shift.date), "yyyy-MM-dd")}</TableCell>
-        <TableCell>{shift.startTime}</TableCell>
-        <TableCell>{shift.endTime}</TableCell>
-        <TableCell align="right">
-          <IconButton
-            size="small"
-            aria-label="edit"
-            onClick={() => handleEditShift(shift.id)}
-            disabled={isWeekPublished}
-          >
-            <EditIcon fontSize="small" />
-          </IconButton>
-          <IconButton
-            size="small"
-            aria-label="delete"
-            onClick={() => handleDeleteClick(shift.id)}
-            disabled={isWeekPublished}
-          >
-            <DeleteIcon fontSize="small" />
-          </IconButton>
-        </TableCell>
-      </TableRow>
-    ));
-  };
-
   return (
     <LocalizationProvider dateAdapter={AdapterDateFns}>
       <Grid container spacing={3}>
@@ -315,94 +255,21 @@ const Shift: FunctionComponent = () => {
                 gap: 2,
               }}
             >
-              <Box display="flex" alignItems="center" gap={1}>
-                <IconButton
-                  color="inherit"
-                  onClick={() => handleWeekNavigation(-1)}
-                  aria-label="previous week"
-                  size="small"
-                >
-                  <ChevronLeftIcon sx={{ color: "#374151" }} />
-                </IconButton>
-                <Button
-                  variant="text"
-                  onClick={() => setIsDatePickerOpen(true)}
-                  startIcon={
-                    isWeekPublished ? (
-                      <CheckCircleIcon sx={{ color: "#22B8B1" }} />
-                    ) : (
-                      <CalendarMonthIcon sx={{ color: "#374151" }} />
-                    )
-                  }
-                  sx={{
-                    color: isWeekPublished ? "#22B8B1" : "#374151",
-                    fontWeight: isWeekPublished ? 700 : 600,
-                    textTransform: "none",
-                    fontSize: 18,
-                    position: 'relative',
-                    '&:hover': {
-                      backgroundColor: isWeekPublished ? 'rgba(34, 184, 177, 0.04)' : 'rgba(55, 65, 81, 0.04)',
-                    },
-                  }}
-                >
-                  {weekRangeLabel}
-                </Button>
-                <IconButton
-                  color="inherit"
-                  onClick={() => handleWeekNavigation(1)}
-                  aria-label="next week"
-                  size="small"
-                >
-                  <ChevronRightIcon sx={{ color: "#374151" }} />
-                </IconButton>
-              </Box>
-              <Box display="flex" alignItems="center" gap={2}>
-                {isWeekPublished && weekInfo?.publishedAt && (
-                  <Typography
-                    sx={{
-                      color: '#22B8B1',
-                      fontWeight: 600,
-                      fontSize: '14px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 1,
-                    }}
-                  >
-                    <CheckCircleIcon sx={{ fontSize: '16px', color: '#22B8B1' }} />
-                    Week published on {format(parseISO(weekInfo.publishedAt), "d MMM yyyy, HH:mm")}
-                  </Typography>
-                )}
-                <Button
-                  variant="contained"
-                  onClick={handleAddShift}
-                  disabled={isWeekPublished}
-                  sx={{
-                    backgroundColor: theme.customColors.turquoise,
-                    color: "white",
-                    fontWeight: 600,
-                    "&:hover": {
-                      backgroundColor: theme.customColors.turquoise,
-                    },
-                  }}
-                >
-                  Add Shift
-                </Button>
-                <Button
-                  variant="contained"
-                  onClick={openPublishDialog}
-                  disabled={isWeekPublished || shifts.length === 0 || publishing}
-                  sx={{
-                    backgroundColor: "white",
-                    color: theme.customColors.navy,
-                    fontWeight: 600,
-                    "&:hover": {
-                      backgroundColor: "white",
-                    },
-                  }}
-                >
-                  {publishing ? <CircularProgress size={20} /> : "Publish"}
-                </Button>
-              </Box>
+              <WeekNavigator
+                weekRangeLabel={weekRangeLabel}
+                isWeekPublished={isWeekPublished}
+                onPrevWeek={() => handleWeekNavigation(-1)}
+                onNextWeek={() => handleWeekNavigation(1)}
+                onOpenCalendar={() => setIsDatePickerOpen(true)}
+              />
+              <WeekActions
+                isWeekPublished={isWeekPublished}
+                publishedAt={weekInfo?.publishedAt ?? null}
+                shiftsCount={shifts.length}
+                publishing={publishing}
+                onAddShift={handleAddShift}
+                onPublish={openPublishDialog}
+              />
             </Box>
             <CardContent>
               {error && (
@@ -415,56 +282,12 @@ const Shift: FunctionComponent = () => {
                 </Alert>
               )}
               {loading && <LinearProgress sx={{ mb: 2 }} />}
-              <Table>
-                <TableHead>
-                  <TableRow>
-                    <TableCell>Name</TableCell>
-                    <TableCell>Date</TableCell>
-                    <TableCell>Start Time</TableCell>
-                    <TableCell>End Time</TableCell>
-                    <TableCell align="right">Actions</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {paginatedShifts.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={5} align="center">
-                        <Typography color="textSecondary">
-                          No shifts found
-                        </Typography>
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    paginatedShifts.map((shift) => (
-                      <TableRow key={shift.id}>
-                        <TableCell>{shift.name}</TableCell>
-                        <TableCell>
-                          {format(parseISO(shift.date), "EEE, MMM d, yyyy")}
-                        </TableCell>
-                        <TableCell>{format(parseISO(`1970-01-01T${shift.startTime}`), "h:mm a")}</TableCell>
-                        <TableCell>{format(parseISO(`1970-01-01T${shift.endTime}`), "h:mm a")}</TableCell>
-                        <TableCell align="right">
-                          <IconButton
-                            size="small"
-                            onClick={() => handleEditShift(shift.id)}
-                            disabled={isWeekPublished}
-                            sx={{ mr: 1 }}
-                          >
-                            <EditIcon fontSize="small" />
-                          </IconButton>
-                          <IconButton
-                            size="small"
-                            onClick={() => handleDeleteClick(shift.id)}
-                            disabled={isWeekPublished}
-                          >
-                            <DeleteIcon fontSize="small" />
-                          </IconButton>
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
+              <ShiftTable
+                shifts={paginatedShifts}
+                isWeekPublished={isWeekPublished}
+                onEditShift={handleEditShift}
+                onDeleteShift={handleDeleteClick}
+              />
               
               {/* Pagination inside card */}
               <TablePagination
