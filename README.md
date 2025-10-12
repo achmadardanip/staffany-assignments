@@ -135,4 +135,14 @@ REACT_APP_API_BASE_URL=http://localhost:3000/api/v1
 - The Redux store uses vanilla Redux to avoid introducing extra dependencies; asynchronous API calls are orchestrated within components while reducers manage the canonical state.
 - `.env` files are committed as requested for easier setup.
 
+## Technical Interview Guide
+For a comprehensive guide to presenting this application in a technical interview, including:
+- Application overview and evaluation criteria
+- Detailed architecture explanations (frontend & backend)
+- Complete codebase walkthrough with code examples
+- Test scenarios with sample data
+- Interview tips and guiding questions
+
+See [TECHNICAL_INTERVIEW_GUIDE.md](./TECHNICAL_INTERVIEW_GUIDE.md)
+
 Feel free to reach out if clarification or additional documentation is required.
