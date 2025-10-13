@@ -15,8 +15,18 @@ const normalizeTimeString = (time: string): string => {
     throw new HttpError(400, "Invalid time format");
   }
 
-  // Use date-fns to parse and validate the time
-  const parsed = parse(time, "HH:mm", new Date());
+  // Handle both HH:mm and HH:mm:ss formats
+  let parsed: Date;
+  if (time.length === 5) {
+    // HH:mm format
+    parsed = parse(time, "HH:mm", new Date());
+  } else if (time.length === 8) {
+    // HH:mm:ss format
+    parsed = parse(time, "HH:mm:ss", new Date());
+  } else {
+    throw new HttpError(400, "Invalid time format");
+  }
+
   if (!isValid(parsed)) {
     throw new HttpError(400, "Invalid time value");
   }
@@ -25,8 +35,17 @@ const normalizeTimeString = (time: string): string => {
 };
 
 const timeToMinutes = (time: string): number => {
-  // Use date-fns to parse the time instead of string manipulation
-  const parsed = parse(time, "HH:mm", new Date());
+  // Handle both HH:mm and HH:mm:ss formats
+  let parsed: Date;
+  if (time.length === 5) {
+    // HH:mm format
+    parsed = parse(time, "HH:mm", new Date());
+  } else if (time.length === 8) {
+    // HH:mm:ss format
+    parsed = parse(time, "HH:mm:ss", new Date());
+  } else {
+    throw new HttpError(400, "Invalid time format");
+  }
   
   if (!isValid(parsed)) {
     throw new HttpError(400, "Invalid time value");
